@@ -3,3 +3,21 @@
 ruvector.db
 skills-lock.json
 .agents
+
+# backend (Python)
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/*.egg-info/
+backend/.env
+backend/*.db
+
+# web (Vite/React)
+web/node_modules/
+web/dist/
+web/.vite/
+web/playwright-report/
+web/test-results/
+web/.env
+web/.env.local
