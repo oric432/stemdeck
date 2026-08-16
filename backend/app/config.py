@@ -17,6 +17,7 @@ class Settings:
     cors_allow_origins: list[str]
     modal_app_name: str
     internal_api_secret: str | None
+    job_timeout_seconds: int
 
 
 def _env(key: str) -> str | None:
@@ -36,6 +37,10 @@ def load_settings() -> Settings:
         cors_allow_origins=(_env("CORS_ALLOW_ORIGINS") or "http://localhost:5173").split(","),
         modal_app_name=_env("MODAL_APP_NAME") or "avseparate",
         internal_api_secret=_env("INTERNAL_API_SECRET"),
+        # A bit above Modal's function timeout (600s in modal_app.py) — if
+        # Modal kills the container on its own timeout, our except/httpx-fail
+        # call never runs, so the job would otherwise sit "processing" forever.
+        job_timeout_seconds=int(_env("JOB_TIMEOUT_SECONDS") or "900"),
     )
 
 

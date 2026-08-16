@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,6 +45,25 @@ def verify_internal_secret(x_internal_secret: str | None = Header(default=None))
         raise HTTPException(status_code=401, detail="Invalid or missing internal secret")
 
 
+def _expire_if_stale(job: Job) -> bool:
+    if job.status != "processing":
+        return False
+
+    created_at = job.created_at
+    # SQLite doesn't reliably round-trip tzinfo through DateTime(timezone=True)
+    # — a naive read-back here means it was written as UTC, so treat it as such.
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    age = (datetime.now(timezone.utc) - created_at).total_seconds()
+    if age < settings.job_timeout_seconds:
+        return False
+
+    job.status = "failed"
+    job.error = "Timed out waiting for separation to complete."
+    return True
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -78,6 +98,11 @@ def upload_song(file: UploadFile, db: Session = Depends(get_db)) -> SongOut:
 @app.get("/songs", response_model=list[SongOut])
 def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
     songs = db.query(Song).order_by(Song.created_at.desc()).all()
+    # any() would short-circuit and skip calling _expire_if_stale (which has
+    # side effects) on jobs after the first stale one — expire them all first.
+    expired = [_expire_if_stale(song.job) for song in songs if song.job]
+    if any(expired):
+        db.commit()
     return [_song_out(song) for song in songs]
 
 
@@ -94,6 +119,8 @@ def get_job(job_id: str, db: Session = Depends(get_db)) -> Job:
     job = db.get(Job, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
+    if _expire_if_stale(job):
+        db.commit()
     return job
 
 

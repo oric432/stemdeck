@@ -141,6 +141,44 @@ def test_get_stems_not_found(client) -> None:
     assert client.get("/songs/does-not-exist/stems").status_code == 404
 
 
+def test_stale_processing_job_marked_failed_on_get(client, monkeypatch) -> None:
+    import app.main as main_module
+
+    monkeypatch.setattr(main_module, "settings", dataclasses.replace(main_module.settings, job_timeout_seconds=0))
+    monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
+
+    song = _upload(client)
+    job_id = _job_id_for_song(client, song["id"])
+
+    response = client.get(f"/jobs/{job_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error"] == "Timed out waiting for separation to complete."
+
+
+def test_stale_processing_job_marked_failed_on_list(client, monkeypatch) -> None:
+    import app.main as main_module
+
+    monkeypatch.setattr(main_module, "settings", dataclasses.replace(main_module.settings, job_timeout_seconds=0))
+    monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
+
+    song = _upload(client)
+
+    updated = next(s for s in client.get("/songs").json() if s["id"] == song["id"])
+    assert updated["job_status"] == "failed"
+
+
+def test_fresh_processing_job_not_expired(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
+
+    song = _upload(client)
+    job_id = _job_id_for_song(client, song["id"])
+
+    response = client.get(f"/jobs/{job_id}")
+    assert response.json()["status"] == "processing"
+
+
 def test_fail_callback_records_error(client, monkeypatch) -> None:
     monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
     song = _upload(client)
