@@ -15,6 +15,8 @@ class Settings:
     s3_secret_access_key: str | None
     s3_region: str
     cors_allow_origins: list[str]
+    modal_app_name: str
+    internal_api_secret: str | None
 
 
 def _env(key: str) -> str | None:
@@ -32,6 +34,8 @@ def load_settings() -> Settings:
         s3_secret_access_key=_env("S3_SECRET_ACCESS_KEY"),
         s3_region=_env("S3_REGION") or "us-east-1",
         cors_allow_origins=(_env("CORS_ALLOW_ORIGINS") or "http://localhost:5173").split(","),
+        modal_app_name=_env("MODAL_APP_NAME") or "avseparate",
+        internal_api_secret=_env("INTERNAL_API_SECRET"),
     )
 
 

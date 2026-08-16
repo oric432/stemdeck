@@ -1,15 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app import storage
+from app import separation, storage
 from app.config import settings
 from app.db import get_db, init_db
-from app.models import Job, Song
-from app.schemas import SongOut
+from app.models import Job, Song, Stem
+from app.schemas import JobCompleteIn, JobFailIn, JobOut, SongOut
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,13 @@ app.add_middleware(
 )
 
 
+def verify_internal_secret(x_internal_secret: str | None = Header(default=None)) -> None:
+    # settings.internal_api_secret being unset must never be treated as "no
+    # secret required" — that would silently open this endpoint to anyone.
+    if not settings.internal_api_secret or x_internal_secret != settings.internal_api_secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing internal secret")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -53,6 +60,15 @@ def upload_song(file: UploadFile, db: Session = Depends(get_db)) -> SongOut:
 
     job = Job(song_id=song.id, status="pending")
     db.add(job)
+    db.flush()
+
+    call_id = separation.trigger_separation(job.id, song.id, song.original_key)
+    if call_id:
+        job.modal_call_id = call_id
+        job.status = "processing"
+    # If the trigger failed, the job is left "pending" with no call id —
+    # there's no retry mechanism yet, so it'll sit stuck until one exists.
+
     db.commit()
     db.refresh(song)
 
@@ -63,6 +79,51 @@ def upload_song(file: UploadFile, db: Session = Depends(get_db)) -> SongOut:
 def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
     songs = db.query(Song).order_by(Song.created_at.desc()).all()
     return [_song_out(song) for song in songs]
+
+
+@app.get("/jobs/{job_id}", response_model=JobOut)
+def get_job(job_id: str, db: Session = Depends(get_db)) -> Job:
+    job = db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+@app.post("/internal/jobs/{job_id}/complete", dependencies=[Depends(verify_internal_secret)])
+def complete_job(job_id: str, payload: JobCompleteIn, db: Session = Depends(get_db)) -> dict[str, str]:
+    job = db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    for stem in payload.stems:
+        db.add(Stem(song_id=job.song_id, kind=stem.kind, r2_key=stem.r2_key))
+    job.status = "complete"
+    job.error = None
+    db.commit()
+
+    # Per the retention policy (ADR 0001/0002): keep stems, drop the original
+    # upload once it's no longer needed, to limit how long we hold a full
+    # copy of a user's (likely copyrighted) source audio.
+    song = db.get(Song, job.song_id)
+    if song and song.original_key:
+        try:
+            storage.delete_object(song.original_key)
+        except Exception:
+            logger.warning("Failed to delete original upload for song %s", song.id, exc_info=True)
+
+    return {"status": "ok"}
+
+
+@app.post("/internal/jobs/{job_id}/fail", dependencies=[Depends(verify_internal_secret)])
+def fail_job(job_id: str, payload: JobFailIn, db: Session = Depends(get_db)) -> dict[str, str]:
+    job = db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.status = "failed"
+    job.error = payload.error
+    db.commit()
+    return {"status": "ok"}
 
 
 def _song_out(song: Song) -> SongOut:

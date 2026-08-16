@@ -6,6 +6,12 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+# Force-override (not setdefault): dev's real Modal creds may already sit in
+# backend/.env, and load_dotenv() (called on app.config import, after this)
+# never overwrites vars already set. Without this, trigger_separation would
+# actually reach real Modal during test runs.
+os.environ["MODAL_TOKEN_ID"] = "test-invalid"
+os.environ["MODAL_TOKEN_SECRET"] = "test-invalid"
 
 import pytest
 from fastapi.testclient import TestClient

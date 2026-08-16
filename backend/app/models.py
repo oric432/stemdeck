@@ -26,6 +26,7 @@ class Song(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     job: Mapped["Job"] = relationship(back_populates="song", uselist=False, cascade="all, delete-orphan")
+    stems: Mapped[list["Stem"]] = relationship(back_populates="song", cascade="all, delete-orphan")
 
 
 class Job(Base):
@@ -34,7 +35,19 @@ class Job(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     song_id: Mapped[str] = mapped_column(ForeignKey("songs.id"), unique=True)
     status: Mapped[str] = mapped_column(String, default="pending")
+    modal_call_id: Mapped[str | None] = mapped_column(String, default=None)
     error: Mapped[str | None] = mapped_column(String, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     song: Mapped["Song"] = relationship(back_populates="job")
+
+
+class Stem(Base):
+    __tablename__ = "stems"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    song_id: Mapped[str] = mapped_column(ForeignKey("songs.id"))
+    kind: Mapped[str] = mapped_column(String)
+    r2_key: Mapped[str] = mapped_column(String)
+
+    song: Mapped["Song"] = relationship(back_populates="stems")

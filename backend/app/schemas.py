@@ -10,3 +10,25 @@ class SongOut(BaseModel):
     job_status: str
 
     model_config = {"from_attributes": True}
+
+
+class JobOut(BaseModel):
+    id: str
+    song_id: str
+    status: str
+    error: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class StemIn(BaseModel):
+    kind: str
+    r2_key: str
+
+
+class JobCompleteIn(BaseModel):
+    stems: list[StemIn]
+
+
+class JobFailIn(BaseModel):
+    error: str
