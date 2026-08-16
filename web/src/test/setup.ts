@@ -11,6 +11,10 @@ class ResizeObserverStub {
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
 
+// jsdom doesn't implement scrollIntoView either — ChordTimeline uses it to
+// keep the active chord in view as playback advances.
+Element.prototype.scrollIntoView ??= () => {};
+
 afterEach(() => {
   cleanup();
 });

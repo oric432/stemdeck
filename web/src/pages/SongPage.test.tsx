@@ -67,6 +67,7 @@ describe("SongPage", () => {
   it("mounts the player once the job completes", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation((url) => {
       if (String(url).includes("/stems")) return Promise.resolve(jsonResponse([]));
+      if (String(url).includes("/chords")) return Promise.resolve(jsonResponse([]));
       return Promise.resolve(
         jsonResponse({ id: "1", title: "song.mp3", created_at: "2026-01-01T00:00:00Z", job_status: "complete" }),
       );

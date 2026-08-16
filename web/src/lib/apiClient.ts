@@ -43,6 +43,21 @@ export async function fetchStems(songId: string): Promise<Stem[]> {
   return response.json();
 }
 
+export interface ChordEvent {
+  start_time: number;
+  end_time: number;
+  chord_label: string;
+  confidence: number;
+}
+
+export async function fetchChords(songId: string): Promise<ChordEvent[]> {
+  const response = await fetch(`${BASE_URL}/songs/${songId}/chords`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch chords: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function uploadSong(file: File): Promise<Song> {
   const formData = new FormData();
   formData.append("file", file);

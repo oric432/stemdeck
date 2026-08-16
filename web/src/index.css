@@ -104,3 +104,20 @@
     );
   }
 }
+
+/* Slim walnut-track, amber-thumb scrollbar for the chord timeline — the
+   default OS scrollbar reads as a stray light-mode leftover on this chassis. */
+.chord-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) var(--color-secondary);
+}
+.chord-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+.chord-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-secondary);
+}
+.chord-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
+}

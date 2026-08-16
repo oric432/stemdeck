@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Led, type LedColor } from "@/components/Led";
 import { Player } from "@/components/Player";
+import { ChordTimeline } from "@/components/ChordTimeline";
 import { usePlayerStore } from "@/state/playerStore";
 import { fetchSong, type Song } from "@/lib/apiClient";
 
@@ -67,7 +68,12 @@ export function SongPage() {
 
       {song ? <h2 className="mx-auto w-full max-w-lg truncate text-center text-2xl font-medium">{song.title}</h2> : null}
 
-      {song && song.job_status === "complete" ? <Player /> : null}
+      {song && song.job_status === "complete" ? (
+        <>
+          <Player />
+          <ChordTimeline songId={song.id} />
+        </>
+      ) : null}
 
       {song && song.job_status !== "complete" ? (
         <Card className="mx-auto w-full max-w-lg border-2 border-border">
