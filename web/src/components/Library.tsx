@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useLibraryStore } from "@/state/libraryStore";
+import { usePlayerStore } from "@/state/playerStore";
 import type { Song } from "@/lib/apiClient";
 
 const JOB_STATUS_CONFIG: Record<Song["job_status"], { icon: typeof Clock; className: string }> = {
@@ -38,6 +39,7 @@ export function Library() {
   const error = useLibraryStore((state) => state.error);
   const refresh = useLibraryStore((state) => state.refresh);
   const upload = useLibraryStore((state) => state.upload);
+  const loadSong = usePlayerStore((state) => state.loadSong);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
@@ -115,18 +117,29 @@ export function Library() {
             No songs yet — upload one, or drag an audio file in.
           </p>
         ) : (
-          songs.map((song, index) => (
-            <div key={song.id}>
-              {index > 0 ? <Separator className="mb-3" /> : null}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Music className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-sm">{song.title}</span>
-                </div>
-                <JobStatusBadge status={song.job_status} />
+          songs.map((song, index) => {
+            const isPlayable = song.job_status === "complete";
+            return (
+              <div key={song.id}>
+                {index > 0 ? <Separator className="mb-3" /> : null}
+                <button
+                  type="button"
+                  disabled={!isPlayable}
+                  onClick={() => loadSong(song.id, song.title)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 rounded-md text-left",
+                    isPlayable && "cursor-pointer hover:text-primary",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Music className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-sm">{song.title}</span>
+                  </div>
+                  <JobStatusBadge status={song.job_status} />
+                </button>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </CardContent>
     </Card>

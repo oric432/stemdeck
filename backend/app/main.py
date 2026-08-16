@@ -9,7 +9,7 @@ from app import separation, storage
 from app.config import settings
 from app.db import get_db, init_db
 from app.models import Job, Song, Stem
-from app.schemas import JobCompleteIn, JobFailIn, JobOut, SongOut
+from app.schemas import JobCompleteIn, JobFailIn, JobOut, SongOut, StemOut
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +79,14 @@ def upload_song(file: UploadFile, db: Session = Depends(get_db)) -> SongOut:
 def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
     songs = db.query(Song).order_by(Song.created_at.desc()).all()
     return [_song_out(song) for song in songs]
+
+
+@app.get("/songs/{song_id}/stems", response_model=list[StemOut])
+def get_stems(song_id: str, db: Session = Depends(get_db)) -> list[StemOut]:
+    song = db.get(Song, song_id)
+    if song is None:
+        raise HTTPException(status_code=404, detail="Song not found")
+    return [StemOut(kind=stem.kind, url=storage.presigned_url(stem.r2_key)) for stem in song.stems]
 
 
 @app.get("/jobs/{job_id}", response_model=JobOut)

@@ -1,0 +1,126 @@
+import type { Stem, StemKind } from "@/lib/apiClient";
+
+interface EngineStem {
+  kind: StemKind;
+  buffer: AudioBuffer;
+  gainNode: GainNode;
+  source: AudioBufferSourceNode | null;
+  volume: number;
+  muted: boolean;
+}
+
+// AudioBufferSourceNode has no pause() — it's one-shot. To pause/seek we stop
+// the current sources and, on the next play(), create fresh ones started at
+// the right offset. `startedAt` + `startOffset` together let currentTime be
+// derived without a running timer.
+export class AudioEngine {
+  private context: AudioContext;
+  private stems: EngineStem[] = [];
+  private startedAt = 0;
+  private startOffset = 0;
+  private playing = false;
+
+  constructor() {
+    this.context = new AudioContext();
+  }
+
+  async load(stems: Stem[]): Promise<void> {
+    this.stop();
+    this.stems = await Promise.all(
+      stems.map(async ({ kind, url }): Promise<EngineStem> => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch stem "${kind}": ${response.status}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = await this.context.decodeAudioData(arrayBuffer);
+        const gainNode = this.context.createGain();
+        gainNode.connect(this.context.destination);
+        return { kind, buffer, gainNode, source: null, volume: 1, muted: false };
+      }),
+    );
+    this.startOffset = 0;
+  }
+
+  get duration(): number {
+    return this.stems.reduce((max, stem) => Math.max(max, stem.buffer.duration), 0);
+  }
+
+  get isPlaying(): boolean {
+    return this.playing;
+  }
+
+  get currentTime(): number {
+    if (!this.playing) return this.startOffset;
+    return this.startOffset + (this.context.currentTime - this.startedAt);
+  }
+
+  play(): void {
+    if (this.playing || this.stems.length === 0) return;
+    void this.context.resume();
+    for (const stem of this.stems) {
+      const source = this.context.createBufferSource();
+      source.buffer = stem.buffer;
+      source.connect(stem.gainNode);
+      source.start(0, this.startOffset);
+      stem.source = source;
+    }
+    this.startedAt = this.context.currentTime;
+    this.playing = true;
+  }
+
+  pause(): void {
+    if (!this.playing) return;
+    this.startOffset = this.currentTime;
+    this.stopSources();
+    this.playing = false;
+  }
+
+  seek(time: number): void {
+    const wasPlaying = this.playing;
+    if (wasPlaying) this.stopSources();
+    this.startOffset = Math.min(Math.max(time, 0), this.duration);
+    this.playing = false;
+    if (wasPlaying) this.play();
+  }
+
+  setVolume(kind: StemKind, volume: number): void {
+    const stem = this.stems.find((s) => s.kind === kind);
+    if (!stem) return;
+    stem.volume = volume;
+    this.applyGain(stem);
+  }
+
+  toggleMute(kind: StemKind): void {
+    const stem = this.stems.find((s) => s.kind === kind);
+    if (!stem) return;
+    stem.muted = !stem.muted;
+    this.applyGain(stem);
+  }
+
+  mixerState(): { kind: StemKind; volume: number; muted: boolean }[] {
+    return this.stems.map(({ kind, volume, muted }) => ({ kind, volume, muted }));
+  }
+
+  stop(): void {
+    this.stopSources();
+    this.playing = false;
+    this.startOffset = 0;
+  }
+
+  dispose(): void {
+    this.stop();
+    void this.context.close();
+  }
+
+  private applyGain(stem: EngineStem): void {
+    stem.gainNode.gain.value = stem.muted ? 0 : stem.volume;
+  }
+
+  private stopSources(): void {
+    for (const stem of this.stems) {
+      stem.source?.stop();
+      stem.source = null;
+    }
+  }
+}

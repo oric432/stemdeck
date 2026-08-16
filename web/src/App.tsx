@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useBackendStore, type BackendStatus } from "@/state/backendStore";
 import { Library } from "@/components/Library";
+import { Player } from "@/components/Player";
 
 const STATUS_CONFIG: Record<
   BackendStatus,
@@ -61,6 +62,7 @@ function App() {
           </CardContent>
         </Card>
         <Library />
+        <Player />
       </motion.div>
     </main>
   );

@@ -20,6 +20,21 @@ export async function fetchSongs(): Promise<Song[]> {
   return response.json();
 }
 
+export type StemKind = "vocals" | "drums" | "bass" | "other";
+
+export interface Stem {
+  kind: StemKind;
+  url: string;
+}
+
+export async function fetchStems(songId: string): Promise<Stem[]> {
+  const response = await fetch(`${BASE_URL}/songs/${songId}/stems`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch stems: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function uploadSong(file: File): Promise<Song> {
   const formData = new FormData();
   formData.append("file", file);

@@ -35,3 +35,11 @@ def upload_original(song_id: str, filename: str, content: bytes) -> str:
 
 def delete_object(key: str) -> None:
     _client.delete_object(Bucket=settings.s3_bucket, Key=key)
+
+
+def presigned_url(key: str, expires_in: int = 3600) -> str:
+    return _client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.s3_bucket, "Key": key},
+        ExpiresIn=expires_in,
+    )

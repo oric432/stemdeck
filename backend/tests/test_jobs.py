@@ -114,6 +114,33 @@ def test_complete_callback_deletes_original_upload(client, monkeypatch) -> None:
         storage._client.head_object(Bucket=storage.settings.s3_bucket, Key=original_key)
 
 
+def test_get_stems_returns_presigned_urls(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
+    song = _upload(client)
+    job_id = _job_id_for_song(client, song["id"])
+
+    client.post(
+        f"/internal/jobs/{job_id}/complete",
+        json={
+            "stems": [
+                {"kind": "vocals", "r2_key": f"songs/{song['id']}/stems/vocals.wav"},
+                {"kind": "drums", "r2_key": f"songs/{song['id']}/stems/drums.wav"},
+            ]
+        },
+        headers={"X-Internal-Secret": "test-secret"},
+    )
+
+    response = client.get(f"/songs/{song['id']}/stems")
+    assert response.status_code == 200
+    stems = response.json()
+    assert {s["kind"] for s in stems} == {"vocals", "drums"}
+    assert all(s["url"].startswith("http") for s in stems)
+
+
+def test_get_stems_not_found(client) -> None:
+    assert client.get("/songs/does-not-exist/stems").status_code == 404
+
+
 def test_fail_callback_records_error(client, monkeypatch) -> None:
     monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
     song = _upload(client)

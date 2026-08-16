@@ -26,6 +26,11 @@ class StemIn(BaseModel):
     r2_key: str
 
 
+class StemOut(BaseModel):
+    kind: str
+    url: str
+
+
 class JobCompleteIn(BaseModel):
     stems: list[StemIn]
 
