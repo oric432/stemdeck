@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from app import separation, storage
 from app.config import settings
 from app.db import get_db, init_db
-from app.models import Job, Song, Stem
-from app.schemas import JobCompleteIn, JobFailIn, JobOut, SongOut, StemOut
+from app.models import ChordEvent, Job, Song, Stem
+from app.schemas import ChordEventOut, JobCompleteIn, JobFailIn, JobOut, SongOut, StemOut
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,14 @@ def get_stems(song_id: str, db: Session = Depends(get_db)) -> list[StemOut]:
     return [StemOut(kind=stem.kind, url=storage.presigned_url(stem.r2_key)) for stem in song.stems]
 
 
+@app.get("/songs/{song_id}/chords", response_model=list[ChordEventOut])
+def get_chords(song_id: str, db: Session = Depends(get_db)) -> list[ChordEvent]:
+    song = db.get(Song, song_id)
+    if song is None:
+        raise HTTPException(status_code=404, detail="Song not found")
+    return sorted(song.chords, key=lambda chord: chord.start_time)
+
+
 @app.get("/jobs/{job_id}", response_model=JobOut)
 def get_job(job_id: str, db: Session = Depends(get_db)) -> Job:
     job = db.get(Job, job_id)
@@ -142,6 +150,16 @@ def complete_job(job_id: str, payload: JobCompleteIn, db: Session = Depends(get_
 
     for stem in payload.stems:
         db.add(Stem(song_id=job.song_id, kind=stem.kind, r2_key=stem.r2_key))
+    for chord in payload.chords:
+        db.add(
+            ChordEvent(
+                song_id=job.song_id,
+                start_time=chord.start_time,
+                end_time=chord.end_time,
+                chord_label=chord.chord_label,
+                confidence=chord.confidence,
+            )
+        )
     job.status = "complete"
     job.error = None
     db.commit()

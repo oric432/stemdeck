@@ -141,6 +141,47 @@ def test_get_stems_not_found(client) -> None:
     assert client.get("/songs/does-not-exist/stems").status_code == 404
 
 
+def test_get_chords_returns_events_sorted_by_start_time(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
+    song = _upload(client)
+    job_id = _job_id_for_song(client, song["id"])
+
+    client.post(
+        f"/internal/jobs/{job_id}/complete",
+        json={
+            "stems": [],
+            "chords": [
+                {"start_time": 4.0, "end_time": 8.0, "chord_label": "A:min", "confidence": 1.0},
+                {"start_time": 0.0, "end_time": 4.0, "chord_label": "C:maj", "confidence": 1.0},
+            ],
+        },
+        headers={"X-Internal-Secret": "test-secret"},
+    )
+
+    response = client.get(f"/songs/{song['id']}/chords")
+    assert response.status_code == 200
+    chords = response.json()
+    assert [c["chord_label"] for c in chords] == ["C:maj", "A:min"]
+
+
+def test_get_chords_defaults_to_empty_list(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.main.separation.trigger_separation", lambda *a, **k: "call-123")
+    song = _upload(client)
+    job_id = _job_id_for_song(client, song["id"])
+
+    client.post(
+        f"/internal/jobs/{job_id}/complete",
+        json={"stems": []},
+        headers={"X-Internal-Secret": "test-secret"},
+    )
+
+    assert client.get(f"/songs/{song['id']}/chords").json() == []
+
+
+def test_get_chords_not_found(client) -> None:
+    assert client.get("/songs/does-not-exist/chords").status_code == 404
+
+
 def test_stale_processing_job_marked_failed_on_get(client, monkeypatch) -> None:
     import app.main as main_module
 

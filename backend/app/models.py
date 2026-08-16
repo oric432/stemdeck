@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, Float, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -27,6 +27,7 @@ class Song(Base):
 
     job: Mapped["Job"] = relationship(back_populates="song", uselist=False, cascade="all, delete-orphan")
     stems: Mapped[list["Stem"]] = relationship(back_populates="song", cascade="all, delete-orphan")
+    chords: Mapped[list["ChordEvent"]] = relationship(back_populates="song", cascade="all, delete-orphan")
 
 
 class Job(Base):
@@ -51,3 +52,16 @@ class Stem(Base):
     r2_key: Mapped[str] = mapped_column(String)
 
     song: Mapped["Song"] = relationship(back_populates="stems")
+
+
+class ChordEvent(Base):
+    __tablename__ = "chord_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    song_id: Mapped[str] = mapped_column(ForeignKey("songs.id"))
+    start_time: Mapped[float] = mapped_column(Float)
+    end_time: Mapped[float] = mapped_column(Float)
+    chord_label: Mapped[str] = mapped_column(String)
+    confidence: Mapped[float] = mapped_column(Float)
+
+    song: Mapped["Song"] = relationship(back_populates="chords")

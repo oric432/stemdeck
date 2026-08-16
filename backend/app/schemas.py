@@ -31,8 +31,25 @@ class StemOut(BaseModel):
     url: str
 
 
+class ChordEventIn(BaseModel):
+    start_time: float
+    end_time: float
+    chord_label: str
+    confidence: float
+
+
+class ChordEventOut(BaseModel):
+    start_time: float
+    end_time: float
+    chord_label: str
+    confidence: float
+
+    model_config = {"from_attributes": True}
+
+
 class JobCompleteIn(BaseModel):
     stems: list[StemIn]
+    chords: list[ChordEventIn] = []
 
 
 class JobFailIn(BaseModel):
