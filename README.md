@@ -1,4 +1,4 @@
-# AVSeparate
+# Stemdeck
 
 Web app for musicians practicing songs: AI stem separation, mixer, synced chords, tempo/pitch control. Runs on iOS/Android/desktop through the browser.
 

@@ -1,4 +1,4 @@
-# AVSeparate web
+# Stemdeck web
 
 React + Vite + TypeScript. Zustand for cross-component state (playback/mixer). Tailwind CSS v4 + shadcn/ui (`new-york` style, neutral base) for UI, lucide-react for icons, motion for animation.
 

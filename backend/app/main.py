@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="AVSeparate", lifespan=lifespan)
+app = FastAPI(title="Stemdeck", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

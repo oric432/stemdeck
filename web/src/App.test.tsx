@@ -9,14 +9,13 @@ describe("App", () => {
     useBackendStore.setState({ status: "unknown" });
   });
 
-  it("shows reachable once the health check succeeds", async () => {
+  it("stays silent once the health check succeeds", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
 
     render(<App />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("backend-status")).toHaveTextContent("Backend reachable"),
-    );
+    await waitFor(() => expect(useBackendStore.getState().status).toBe("reachable"));
+    expect(screen.queryByTestId("backend-status")).not.toBeInTheDocument();
   });
 
   it("shows unreachable when the health check fails", async () => {

@@ -1,4 +1,4 @@
-# AVSeparate backend
+# Stemdeck backend
 
 FastAPI service. Job orchestration for stem separation (Modal/htdemucs) and chord detection (madmom); metadata in Supabase Postgres, audio in Cloudflare R2.
 
