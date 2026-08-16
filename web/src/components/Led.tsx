@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 
-export type LedColor = "amber" | "green" | "red" | "dim";
+export type LedColor = "primary" | "green" | "red" | "dim";
 
 const LED_STYLES: Record<LedColor, string> = {
-  amber: "bg-primary shadow-[0_0_6px_var(--color-primary)]",
+  primary: "bg-primary shadow-[0_0_6px_var(--color-primary)]",
   green: "bg-success shadow-[0_0_6px_var(--color-success)]",
   red: "bg-destructive shadow-[0_0_6px_var(--color-destructive)]",
   dim: "bg-muted-foreground/40",

@@ -10,7 +10,7 @@ import type { Song } from "@/lib/apiClient";
 
 const JOB_STATUS_CONFIG: Record<Song["job_status"], { color: LedColor; label: string; pulse?: boolean }> = {
   pending: { color: "dim", label: "Pending" },
-  processing: { color: "amber", label: "Separating", pulse: true },
+  processing: { color: "primary", label: "Separating", pulse: true },
   complete: { color: "green", label: "Ready" },
   failed: { color: "red", label: "Failed" },
   unknown: { color: "dim", label: "Unknown" },

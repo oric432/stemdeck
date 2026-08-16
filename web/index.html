@@ -4,7 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AVSeparate</title>
+    <title>Stemdeck</title>
+    <script>
+      // Applied before first paint so there's no flash of the wrong theme —
+      // React doesn't get a chance to run first, this has to be synchronous
+      // and inline, not in a bundled/deferred script.
+      (function () {
+        var stored = localStorage.getItem("stemdeck-theme");
+        var isDark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (isDark) document.documentElement.classList.add("dark");
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

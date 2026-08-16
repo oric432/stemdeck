@@ -87,7 +87,7 @@ export function Player() {
                       stem.muted ? "border-border bg-secondary" : "border-primary/60 bg-secondary",
                     )}
                   >
-                    <Led color={stem.muted ? "dim" : "amber"} />
+                    <Led color={stem.muted ? "dim" : "primary"} />
                   </button>
                   <Slider
                     orientation="vertical"

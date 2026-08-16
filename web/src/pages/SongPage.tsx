@@ -10,7 +10,7 @@ import { fetchSong, type Song } from "@/lib/apiClient";
 
 const STATUS_CONFIG: Record<Song["job_status"], { color: LedColor; label: string; pulse?: boolean }> = {
   pending: { color: "dim", label: "Waiting to start separation…" },
-  processing: { color: "amber", label: "Separating stems — this can take a minute…", pulse: true },
+  processing: { color: "primary", label: "Separating stems — this can take a minute…", pulse: true },
   complete: { color: "green", label: "Ready" },
   failed: { color: "red", label: "Separation failed. Try uploading the song again." },
   unknown: { color: "dim", label: "Unknown status." },
