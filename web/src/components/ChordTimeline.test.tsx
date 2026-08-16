@@ -19,7 +19,7 @@ describe("ChordTimeline", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    usePlayerStore.setState({ currentTime: 0, seek: originalSeek });
+    usePlayerStore.setState({ currentTime: 0, pitchSemitones: 0, seek: originalSeek });
   });
 
   it("renders nothing while there are no chords", async () => {
@@ -53,6 +53,17 @@ describe("ChordTimeline", () => {
     screen.getByText("Am").click();
 
     expect(seek).toHaveBeenCalledWith(12);
+  });
+
+  it("transposes chord roots to match the key shift", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(CHORDS));
+    usePlayerStore.setState({ currentTime: 4.5, pitchSemitones: 2 });
+
+    render(<ChordTimeline songId="1" />);
+
+    // C:maj up 2 semitones -> D, A:min up 2 semitones -> Bm.
+    await waitFor(() => expect(screen.getByText("D")).toBeInTheDocument());
+    expect(screen.getByText("Bm")).toBeInTheDocument();
   });
 
   it("only mounts cells near the playhead, not the whole song", async () => {

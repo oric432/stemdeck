@@ -1,4 +1,4 @@
-import { Pause, Play } from "lucide-react";
+import { Minus, Pause, Play, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -30,10 +30,14 @@ export function Player() {
   const currentTime = usePlayerStore((state) => state.currentTime);
   const duration = usePlayerStore((state) => state.duration);
   const stems = usePlayerStore((state) => state.stems);
+  const tempo = usePlayerStore((state) => state.tempo);
+  const pitchSemitones = usePlayerStore((state) => state.pitchSemitones);
   const togglePlay = usePlayerStore((state) => state.togglePlay);
   const seek = usePlayerStore((state) => state.seek);
   const setVolume = usePlayerStore((state) => state.setVolume);
   const toggleMute = usePlayerStore((state) => state.toggleMute);
+  const setTempo = usePlayerStore((state) => state.setTempo);
+  const setPitchSemitones = usePlayerStore((state) => state.setPitchSemitones);
 
   if (!songId) return null;
 
@@ -100,6 +104,51 @@ export function Player() {
                   </span>
                 </div>
               ))}
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center gap-6 px-2">
+              <div className="flex flex-1 flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs tracking-wider text-muted-foreground">TEMPO</span>
+                  <span className="rounded-sm border border-border bg-background px-2 py-0.5 font-mono text-xs tabular-nums text-primary shadow-[inset_0_1px_2px_rgb(0_0_0_/_0.6)]">
+                    {Math.round(tempo * 100)}%
+                  </span>
+                </div>
+                <Slider
+                  value={[tempo * 100]}
+                  min={50}
+                  max={150}
+                  step={5}
+                  onValueChange={([value]) => setTempo(value / 100)}
+                />
+              </div>
+
+              <div className="flex shrink-0 flex-col items-center gap-2">
+                <span className="font-mono text-xs tracking-wider text-muted-foreground">KEY</span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="icon-xs"
+                    variant="outline"
+                    onClick={() => setPitchSemitones(Math.max(pitchSemitones - 1, -12))}
+                    aria-label="Pitch down a semitone"
+                  >
+                    <Minus className="size-3" />
+                  </Button>
+                  <span className="w-9 rounded-sm border border-border bg-background py-0.5 text-center font-mono text-xs tabular-nums text-primary shadow-[inset_0_1px_2px_rgb(0_0_0_/_0.6)]">
+                    {pitchSemitones > 0 ? `+${pitchSemitones}` : pitchSemitones}
+                  </span>
+                  <Button
+                    size="icon-xs"
+                    variant="outline"
+                    onClick={() => setPitchSemitones(Math.min(pitchSemitones + 1, 12))}
+                    aria-label="Pitch up a semitone"
+                  >
+                    <Plus className="size-3" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </>
         ) : null}

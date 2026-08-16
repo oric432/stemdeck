@@ -3,12 +3,26 @@ import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/state/playerStore";
 import { fetchChords, type ChordEvent } from "@/lib/apiClient";
 
-function formatChordLabel(label: string): string {
+const SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+// madmom's chord vocabulary hasn't been observed emitting flats, but handle
+// them anyway rather than silently failing to transpose a root we don't
+// recognize — always normalized to the equivalent sharp name.
+const FLAT_TO_SHARP: Record<string, string> = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" };
+
+function transposeRoot(root: string, semitones: number): string {
+  const normalized = FLAT_TO_SHARP[root] ?? root;
+  const index = SHARP_NAMES.indexOf(normalized);
+  if (index === -1) return root;
+  return SHARP_NAMES[((index + semitones) % 12 + 12) % 12];
+}
+
+function formatChordLabel(label: string, pitchSemitones: number): string {
   if (label === "N") return "–";
   const [root, quality] = label.split(":");
-  if (!quality || quality === "maj") return root;
-  if (quality === "min") return `${root}m`;
-  return `${root}${quality}`;
+  const transposedRoot = transposeRoot(root, pitchSemitones);
+  if (!quality || quality === "maj") return transposedRoot;
+  if (quality === "min") return `${transposedRoot}m`;
+  return `${transposedRoot}${quality}`;
 }
 
 // A grid of fixed-width cells, like Chordify's — every cell is the same
@@ -100,6 +114,8 @@ export function ChordTimeline({ songId }: { songId: string }) {
   const [chords, setChords] = useState<ChordEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const pitchSemitones = usePlayerStore((state) => state.pitchSemitones);
+
   useEffect(() => {
     fetchChords(songId)
       .then(setChords)
@@ -118,11 +134,11 @@ export function ChordTimeline({ songId }: { songId: string }) {
         globalIndex: globalIndex++,
         startTime: chord.start_time + cellIndex * step,
         endTime: chord.start_time + (cellIndex + 1) * step,
-        label: cellIndex === 0 ? formatChordLabel(chord.chord_label) : "",
+        label: cellIndex === 0 ? formatChordLabel(chord.chord_label, pitchSemitones) : "",
         isRest: chord.chord_label === "N",
       }));
     });
-  }, [chords]);
+  }, [chords, pitchSemitones]);
 
   const windowCenter = usePlayerStore(
     (state) => Math.floor(state.currentTime / WINDOW_STEP_SECONDS) * WINDOW_STEP_SECONDS,

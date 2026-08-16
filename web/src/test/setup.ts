@@ -15,6 +15,14 @@ globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObse
 // keep the active chord in view as playback advances.
 Element.prototype.scrollIntoView ??= () => {};
 
+// jsdom has no Web Audio API at all — @soundtouchjs/audio-worklet's
+// SoundTouchNode class declaration is `extends AudioWorkletNode`, so just
+// *importing* audioEngine.ts (transitively, via playerStore) throws at
+// module-load time in every test, even ones that never touch real audio.
+// The engine itself is only ever instantiated in tests that mock this
+// module outright, so a plain extendable stub is enough.
+globalThis.AudioWorkletNode ??= class AudioWorkletNode {} as unknown as typeof AudioWorkletNode;
+
 afterEach(() => {
   cleanup();
 });

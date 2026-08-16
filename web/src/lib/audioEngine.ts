@@ -1,9 +1,12 @@
+import { SoundTouchNode } from "@soundtouchjs/audio-worklet";
+import processorUrl from "@soundtouchjs/audio-worklet/processor?url";
 import type { Stem, StemKind } from "@/lib/apiClient";
 
 interface EngineStem {
   kind: StemKind;
   buffer: AudioBuffer;
   gainNode: GainNode;
+  soundTouchNode: SoundTouchNode;
   source: AudioBufferSourceNode | null;
   volume: number;
   muted: boolean;
@@ -19,13 +22,22 @@ export class AudioEngine {
   private startedAt = 0;
   private startOffset = 0;
   private playing = false;
+  private tempo = 1;
+  private pitchSemitones = 0;
+  private workletReady: Promise<void> | null = null;
 
   constructor() {
     this.context = new AudioContext();
   }
 
+  private registerWorklet(): Promise<void> {
+    this.workletReady ??= SoundTouchNode.register(this.context, processorUrl);
+    return this.workletReady;
+  }
+
   async load(stems: Stem[]): Promise<void> {
     this.stop();
+    await this.registerWorklet();
     this.stems = await Promise.all(
       stems.map(async ({ kind, url }): Promise<EngineStem> => {
         const response = await fetch(url);
@@ -36,7 +48,14 @@ export class AudioEngine {
         const buffer = await this.context.decodeAudioData(arrayBuffer);
         const gainNode = this.context.createGain();
         gainNode.connect(this.context.destination);
-        return { kind, buffer, gainNode, source: null, volume: 1, muted: false };
+        // SoundTouch sits between the (one-shot) source and the (persistent)
+        // gain node, same lifetime as the gain node — only the source itself
+        // gets recreated on every play().
+        const soundTouchNode = new SoundTouchNode({ context: this.context });
+        soundTouchNode.connect(gainNode);
+        soundTouchNode.playbackRate.value = this.tempo;
+        soundTouchNode.pitchSemitones.value = this.pitchSemitones;
+        return { kind, buffer, gainNode, soundTouchNode, source: null, volume: 1, muted: false };
       }),
     );
     this.startOffset = 0;
@@ -52,7 +71,9 @@ export class AudioEngine {
 
   get currentTime(): number {
     if (!this.playing) return this.startOffset;
-    return this.startOffset + (this.context.currentTime - this.startedAt);
+    // Wall-clock time advances the song position `tempo`x as fast, since
+    // that's how much faster the source is being fed through playbackRate.
+    return this.startOffset + (this.context.currentTime - this.startedAt) * this.tempo;
   }
 
   play(): void {
@@ -61,7 +82,8 @@ export class AudioEngine {
     for (const stem of this.stems) {
       const source = this.context.createBufferSource();
       source.buffer = stem.buffer;
-      source.connect(stem.gainNode);
+      source.playbackRate.value = this.tempo;
+      source.connect(stem.soundTouchNode);
       source.start(0, this.startOffset);
       stem.source = source;
     }
@@ -82,6 +104,30 @@ export class AudioEngine {
     this.startOffset = Math.min(Math.max(time, 0), this.duration);
     this.playing = false;
     if (wasPlaying) this.play();
+  }
+
+  // Tempo changes apply live to already-running sources (playbackRate is a
+  // real AudioParam) — no need to stop/restart them, just re-anchor the
+  // offset/clock bookkeeping so currentTime keeps reporting correctly.
+  setTempo(rate: number): void {
+    if (this.playing) {
+      this.startOffset = this.currentTime;
+      this.startedAt = this.context.currentTime;
+    }
+    this.tempo = rate;
+    for (const stem of this.stems) {
+      stem.soundTouchNode.playbackRate.value = rate;
+      if (stem.source) stem.source.playbackRate.value = rate;
+    }
+  }
+
+  // Pitch-only change — doesn't affect playback speed, so no timing
+  // bookkeeping needed, just push the new value to each stem's processor.
+  setPitchSemitones(semitones: number): void {
+    this.pitchSemitones = semitones;
+    for (const stem of this.stems) {
+      stem.soundTouchNode.pitchSemitones.value = semitones;
+    }
   }
 
   setVolume(kind: StemKind, volume: number): void {

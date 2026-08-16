@@ -17,11 +17,15 @@ interface PlayerState {
   currentTime: number;
   duration: number;
   stems: StemMix[];
+  tempo: number;
+  pitchSemitones: number;
   loadSong: (songId: string, title: string) => Promise<void>;
   togglePlay: () => void;
   seek: (time: number) => void;
   setVolume: (kind: StemKind, volume: number) => void;
   toggleMute: (kind: StemKind) => void;
+  setTempo: (tempo: number) => void;
+  setPitchSemitones: (semitones: number) => void;
   close: () => void;
 }
 
@@ -58,6 +62,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     currentTime: 0,
     duration: 0,
     stems: [],
+    tempo: 1,
+    pitchSemitones: 0,
 
     loadSong: async (songId, title) => {
       stopTicking();
@@ -72,6 +78,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         currentTime: 0,
         duration: 0,
         stems: [],
+        tempo: 1,
+        pitchSemitones: 0,
       });
       try {
         const stems = await fetchStems(songId);
@@ -113,6 +121,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ stems: engine.mixerState() });
     },
 
+    setTempo: (tempo) => {
+      if (!engine) return;
+      engine.setTempo(tempo);
+      set({ tempo, currentTime: engine.currentTime });
+    },
+
+    setPitchSemitones: (semitones) => {
+      if (!engine) return;
+      engine.setPitchSemitones(semitones);
+      set({ pitchSemitones: semitones });
+    },
+
     close: () => {
       stopTicking();
       engine?.dispose();
@@ -126,6 +146,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         currentTime: 0,
         duration: 0,
         stems: [],
+        tempo: 1,
+        pitchSemitones: 0,
       });
     },
   };

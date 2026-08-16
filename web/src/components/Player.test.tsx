@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Player } from "./Player";
 import { usePlayerStore } from "@/state/playerStore";
 
 describe("Player", () => {
+  const originalSetPitchSemitones = usePlayerStore.getState().setPitchSemitones;
+
   afterEach(() => {
     usePlayerStore.setState({
       songId: null,
@@ -14,6 +16,9 @@ describe("Player", () => {
       currentTime: 0,
       duration: 0,
       stems: [],
+      tempo: 1,
+      pitchSemitones: 0,
+      setPitchSemitones: originalSetPitchSemitones,
     });
   });
 
@@ -45,5 +50,29 @@ describe("Player", () => {
     expect(screen.getByText("VOX")).toBeInTheDocument();
     expect(screen.getByText("DRM")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /unmute drums/i })).toBeInTheDocument();
+  });
+
+  it("shows tempo and key, and steps the key up/down a semitone at a time", () => {
+    const setPitchSemitones = vi.fn();
+    usePlayerStore.setState({
+      songId: "1",
+      songTitle: "song.mp3",
+      isLoading: false,
+      duration: 120,
+      stems: [],
+      tempo: 1.1,
+      pitchSemitones: 2,
+      setPitchSemitones,
+    });
+    render(<Player />);
+
+    expect(screen.getByText("110%")).toBeInTheDocument();
+    expect(screen.getByText("+2")).toBeInTheDocument();
+
+    screen.getByRole("button", { name: /pitch up a semitone/i }).click();
+    expect(setPitchSemitones).toHaveBeenCalledWith(3);
+
+    screen.getByRole("button", { name: /pitch down a semitone/i }).click();
+    expect(setPitchSemitones).toHaveBeenCalledWith(1);
   });
 });

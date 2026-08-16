@@ -15,6 +15,8 @@ vi.mock("@/lib/audioEngine", () => {
     seek() {}
     setVolume() {}
     toggleMute() {}
+    setTempo() {}
+    setPitchSemitones() {}
     mixerState() {
       return [];
     }
@@ -50,6 +52,8 @@ describe("SongPage", () => {
       currentTime: 0,
       duration: 0,
       stems: [],
+      tempo: 1,
+      pitchSemitones: 0,
     });
   });
 
