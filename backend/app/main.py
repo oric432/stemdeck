@@ -106,6 +106,16 @@ def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
     return [_song_out(song) for song in songs]
 
 
+@app.get("/songs/{song_id}", response_model=SongOut)
+def get_song(song_id: str, db: Session = Depends(get_db)) -> SongOut:
+    song = db.get(Song, song_id)
+    if song is None:
+        raise HTTPException(status_code=404, detail="Song not found")
+    if song.job and _expire_if_stale(song.job):
+        db.commit()
+    return _song_out(song)
+
+
 @app.get("/songs/{song_id}/stems", response_model=list[StemOut])
 def get_stems(song_id: str, db: Session = Depends(get_db)) -> list[StemOut]:
     song = db.get(Song, song_id)

@@ -20,6 +20,14 @@ export async function fetchSongs(): Promise<Song[]> {
   return response.json();
 }
 
+export async function fetchSong(songId: string): Promise<Song> {
+  const response = await fetch(`${BASE_URL}/songs/${songId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch song: ${response.status}`);
+  }
+  return response.json();
+}
+
 export type StemKind = "vocals" | "drums" | "bass" | "other";
 
 export interface Stem {
