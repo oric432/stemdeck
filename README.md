@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/oric432/stemdeck/main/web/public/logo.svg" width="64" height="64" alt="Stemdeck logo">
+
 # Stemdeck
 
 Web app for musicians practicing songs: AI stem separation, mixer, synced chords, tempo/pitch control. Runs on iOS/Android/desktop through the browser.
