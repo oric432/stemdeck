@@ -43,8 +43,8 @@ describe("Player", () => {
 
     expect(screen.getByText("song.mp3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
-    expect(screen.getByText("Vocals")).toBeInTheDocument();
-    expect(screen.getByText("Drums")).toBeInTheDocument();
+    expect(screen.getByText("VOX")).toBeInTheDocument();
+    expect(screen.getByText("DRM")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /unmute drums/i })).toBeInTheDocument();
   });
 });

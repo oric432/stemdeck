@@ -37,7 +37,7 @@ describe("Library", () => {
     render(<Library />);
 
     await waitFor(() => expect(screen.getByText("practice-track.mp3")).toBeInTheDocument());
-    expect(screen.getByText("pending")).toBeInTheDocument();
+    expect(screen.getByText("Pending")).toBeInTheDocument();
   });
 
   it("uploads the selected file and refreshes the list", async () => {

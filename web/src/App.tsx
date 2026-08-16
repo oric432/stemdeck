@@ -1,31 +1,14 @@
 import { useEffect } from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useBackendStore, type BackendStatus } from "@/state/backendStore";
 import { Library } from "@/components/Library";
 import { Player } from "@/components/Player";
+import { Led, type LedColor } from "@/components/Led";
 
-const STATUS_CONFIG: Record<
-  BackendStatus,
-  { label: string; icon: typeof Loader2; className: string }
-> = {
-  unknown: {
-    label: "Checking backend…",
-    icon: Loader2,
-    className: "text-muted-foreground",
-  },
-  reachable: {
-    label: "Backend reachable",
-    icon: CheckCircle2,
-    className: "text-success border-success/30 bg-success/10",
-  },
-  unreachable: {
-    label: "Backend unreachable",
-    icon: XCircle,
-    className: "text-destructive border-destructive/30 bg-destructive/10",
-  },
+const STATUS_CONFIG: Record<BackendStatus, { color: LedColor; label: string; pulse?: boolean }> = {
+  unknown: { color: "amber", label: "Checking backend…", pulse: true },
+  reachable: { color: "green", label: "Backend reachable" },
+  unreachable: { color: "red", label: "Backend unreachable" },
 };
 
 function App() {
@@ -36,33 +19,35 @@ function App() {
     check();
   }, [check]);
 
-  const { label, icon: Icon, className } = STATUS_CONFIG[status];
+  const { color, label, pulse } = STATUS_CONFIG[status];
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background p-6">
+    <main className="min-h-svh bg-background px-6 py-10">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-        className="flex flex-col gap-4"
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="mx-auto flex max-w-4xl flex-col gap-8"
       >
-        <Card className="w-80">
-          <CardHeader>
-            <h1 className="text-2xl leading-none font-semibold">AVSeparate</h1>
-          </CardHeader>
-          <CardContent>
-            <Badge
-              variant="outline"
-              className={`gap-1.5 px-3 py-1 ${className}`}
-              data-testid="backend-status"
-            >
-              <Icon className={status === "unknown" ? "size-3.5 animate-spin" : "size-3.5"} />
-              {label}
-            </Badge>
-          </CardContent>
-        </Card>
-        <Library />
-        <Player />
+        <header className="flex items-end justify-between gap-4 border-b border-border pb-5">
+          <div>
+            <h1 className="font-display text-4xl leading-none font-semibold tracking-wide text-foreground uppercase">
+              AVSeparate
+            </h1>
+            <p className="mt-2 text-xs tracking-[0.2em] text-muted-foreground uppercase">
+              Stem separation &amp; practice deck
+            </p>
+          </div>
+          <div className="flex items-center gap-2 pb-1" data-testid="backend-status">
+            <Led color={color} pulse={pulse} />
+            <span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
+          </div>
+        </header>
+
+        <div className="flex flex-col items-start gap-6 md:flex-row">
+          <Library />
+          <Player />
+        </div>
       </motion.div>
     </main>
   );
