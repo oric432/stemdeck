@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Music } from "lucide-react";
+import { Music, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Led, type LedColor } from "@/components/Led";
@@ -34,8 +34,13 @@ export function SongList() {
   const hasActiveJobs = useLibraryStore((state) =>
     state.songs.some((song) => ACTIVE_STATUSES.has(song.job_status)),
   );
+  const hasMore = useLibraryStore((state) => state.hasMore);
+  const isLoadingMore = useLibraryStore((state) => state.isLoadingMore);
   const error = useLibraryStore((state) => state.error);
   const refresh = useLibraryStore((state) => state.refresh);
+  const loadMore = useLibraryStore((state) => state.loadMore);
+  const remove = useLibraryStore((state) => state.remove);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     refresh();
@@ -46,6 +51,25 @@ export function SongList() {
     const interval = setInterval(refresh, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [hasActiveJobs, refresh]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore();
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
+  function handleDelete(song: Song) {
+    if (window.confirm(`Delete "${song.title}"? This can't be undone.`)) {
+      remove(song.id);
+    }
+  }
 
   return (
     <Card className="mx-auto w-full max-w-lg border-2 border-border">
@@ -59,33 +83,50 @@ export function SongList() {
         ) : (
           songs.map((song, index) => {
             const isPlayable = song.job_status === "complete";
-            const rowClassName = "flex w-full items-center justify-between gap-3 rounded-sm px-1 py-1.5";
-            const row = (
+            const linkContent = (
               <>
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Music className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-base">{song.title}</span>
-                </div>
-                <StatusReadout status={song.job_status} />
+                <Music className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate text-base">{song.title}</span>
               </>
             );
             return (
               <div key={song.id}>
                 {index > 0 ? <Separator className="mb-4" /> : null}
-                {isPlayable ? (
-                  <Link
-                    to={`/songs/${song.id}`}
-                    className={cn(rowClassName, "transition-[transform,background-color] hover:bg-accent/40 active:translate-y-px")}
-                  >
-                    {row}
-                  </Link>
-                ) : (
-                  <div className={rowClassName}>{row}</div>
-                )}
+                <div className="flex w-full items-center justify-between gap-3 rounded-sm px-1 py-1.5">
+                  {isPlayable ? (
+                    <Link
+                      to={`/songs/${song.id}`}
+                      className={cn(
+                        "flex min-w-0 flex-1 items-center gap-2.5 rounded-sm",
+                        "transition-[transform,background-color] hover:bg-accent/40 active:translate-y-px",
+                      )}
+                    >
+                      {linkContent}
+                    </Link>
+                  ) : (
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">{linkContent}</div>
+                  )}
+                  <div className="flex shrink-0 items-center gap-3">
+                    <StatusReadout status={song.job_status} />
+                    <button
+                      type="button"
+                      aria-label={`Delete ${song.title}`}
+                      onClick={() => handleDelete(song)}
+                      className="text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })
         )}
+        {hasMore ? (
+          <div ref={sentinelRef} className="py-2 text-center text-xs text-muted-foreground">
+            {isLoadingMore ? "Loading more…" : null}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

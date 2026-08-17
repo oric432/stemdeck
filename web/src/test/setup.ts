@@ -11,6 +11,16 @@ class ResizeObserverStub {
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
 
+// jsdom has no IntersectionObserver either — SongList's infinite-scroll
+// sentinel needs it just to mount, even in tests with too few songs to
+// ever trigger loadMore.
+class IntersectionObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.IntersectionObserver ??= IntersectionObserverStub as unknown as typeof IntersectionObserver;
+
 // jsdom doesn't implement scrollIntoView either — ChordTimeline uses it to
 // keep the active chord in view as playback advances.
 Element.prototype.scrollIntoView ??= () => {};

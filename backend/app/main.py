@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -76,6 +76,24 @@ def _expire_if_stale(job: Job) -> bool:
     return True
 
 
+def _delete_song(db: Session, song: Song) -> None:
+    # original_key may still point at a real object (song never completed
+    # separation) or a stale one already removed by complete_job/fail_job/
+    # _expire_if_stale (S3-compatible deletes are idempotent — deleting an
+    # already-gone key is a no-op, not an error) — safe to always attempt.
+    if song.original_key:
+        try:
+            storage.delete_object(song.original_key)
+        except Exception:
+            logger.warning("Failed to delete original upload for song %s", song.id, exc_info=True)
+    for stem in song.stems:
+        try:
+            storage.delete_object(stem.r2_key)
+        except Exception:
+            logger.warning("Failed to delete stem %s for song %s", stem.kind, song.id, exc_info=True)
+    db.delete(song)
+
+
 def _sweep_expired_stems(db: Session, songs: list[Song]) -> list[Song]:
     """Hard-deletes songs whose stems have gone unplayed past
     settings.stem_retention_days (falling back to created_at for songs that
@@ -101,12 +119,7 @@ def _sweep_expired_stems(db: Session, songs: list[Song]) -> list[Song]:
             remaining.append(song)
             continue
 
-        for stem in song.stems:
-            try:
-                storage.delete_object(stem.r2_key)
-            except Exception:
-                logger.warning("Failed to delete stem %s for song %s", stem.kind, song.id, exc_info=True)
-        db.delete(song)
+        _delete_song(db, song)
         changed = True
 
     if changed:
@@ -147,7 +160,15 @@ def upload_song(file: UploadFile, db: Session = Depends(get_db)) -> SongOut:
 
 
 @app.get("/songs", response_model=list[SongOut])
-def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
+def list_songs(
+    db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
+) -> list[SongOut]:
+    # Staleness/expiry sweeps always run over the *full* table, not just the
+    # requested page — otherwise a song that's fallen off the end of an
+    # infinite-scrolled list would never get swept, defeating the point of
+    # storage-bounding expiry for exactly the songs it matters most for.
     songs = db.query(Song).order_by(Song.created_at.desc()).all()
     # any() would short-circuit and skip calling _expire_if_stale (which has
     # side effects) on jobs after the first stale one — expire them all first.
@@ -155,6 +176,14 @@ def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
     if any(expired):
         db.commit()
     songs = _sweep_expired_stems(db, songs)
+
+    # limit/offset are opt-in — omitting both (as every caller did before
+    # pagination existed) returns everything, unchanged from before.
+    if limit is not None:
+        songs = songs[offset : offset + limit]
+    elif offset:
+        songs = songs[offset:]
+
     return [_song_out(song) for song in songs]
 
 
@@ -166,6 +195,15 @@ def get_song(song_id: str, db: Session = Depends(get_db)) -> SongOut:
     if song.job and _expire_if_stale(song.job):
         db.commit()
     return _song_out(song)
+
+
+@app.delete("/songs/{song_id}", status_code=204)
+def delete_song(song_id: str, db: Session = Depends(get_db)) -> None:
+    song = db.get(Song, song_id)
+    if song is None:
+        raise HTTPException(status_code=404, detail="Song not found")
+    _delete_song(db, song)
+    db.commit()
 
 
 @app.get("/songs/{song_id}/stems", response_model=list[StemOut])

@@ -12,12 +12,24 @@ export async function checkHealth(): Promise<boolean> {
   return response.ok;
 }
 
-export async function fetchSongs(): Promise<Song[]> {
-  const response = await fetch(`${BASE_URL}/songs`);
+export async function fetchSongs(params?: { limit?: number; offset?: number }): Promise<Song[]> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  const qs = query.toString();
+
+  const response = await fetch(`${BASE_URL}/songs${qs ? `?${qs}` : ""}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch songs: ${response.status}`);
   }
   return response.json();
+}
+
+export async function deleteSong(songId: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/songs/${songId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(`Failed to delete song: ${response.status}`);
+  }
 }
 
 export async function fetchSong(songId: string): Promise<Song> {

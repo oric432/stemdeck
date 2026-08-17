@@ -15,7 +15,7 @@ function jsonResponse(body: unknown, status = 200) {
 describe("Upload", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    useLibraryStore.setState({ songs: [], isUploading: false, error: null });
+    useLibraryStore.setState({ songs: [], isUploading: false, isLoadingMore: false, hasMore: true, error: null });
   });
 
   it("uploads the selected file", async () => {
