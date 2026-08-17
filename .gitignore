@@ -1,6 +1,9 @@
 .claude
 .calude-flow
 ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
+CLAUDE.md
 skills-lock.json
 .agents
 
