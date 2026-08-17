@@ -24,6 +24,7 @@ class Song(Base):
     title: Mapped[str] = mapped_column(String)
     original_key: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_played_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     job: Mapped["Job"] = relationship(back_populates="song", uselist=False, cascade="all, delete-orphan")
     stems: Mapped[list["Stem"]] = relationship(back_populates="song", cascade="all, delete-orphan")

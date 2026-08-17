@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,7 +46,11 @@ def verify_internal_secret(x_internal_secret: str | None = Header(default=None))
 
 
 def _expire_if_stale(job: Job) -> bool:
-    if job.status != "processing":
+    # "pending" covers jobs where trigger_separation itself failed (see its
+    # docstring) — those never reach "processing" at all, so without this
+    # they'd sit here forever, past every timeout, with their original never
+    # cleaned up.
+    if job.status not in ("pending", "processing"):
         return False
 
     created_at = job.created_at
@@ -61,7 +65,54 @@ def _expire_if_stale(job: Job) -> bool:
 
     job.status = "failed"
     job.error = "Timed out waiting for separation to complete."
+
+    song = job.song
+    if song and song.original_key:
+        try:
+            storage.delete_object(song.original_key)
+        except Exception:
+            logger.warning("Failed to delete original upload for song %s", song.id, exc_info=True)
+
     return True
+
+
+def _sweep_expired_stems(db: Session, songs: list[Song]) -> list[Song]:
+    """Hard-deletes songs whose stems have gone unplayed past
+    settings.stem_retention_days (falling back to created_at for songs that
+    finished processing but were never opened, so an uploaded-and-forgotten
+    song still expires). Returns the surviving songs, cascade-deleting the
+    Job/Stem/ChordEvent rows of the ones it removes.
+    """
+    threshold = timedelta(days=settings.stem_retention_days)
+    now = datetime.now(timezone.utc)
+    remaining: list[Song] = []
+    changed = False
+
+    for song in songs:
+        if not song.job or song.job.status != "complete":
+            remaining.append(song)
+            continue
+
+        last_active = song.last_played_at or song.created_at
+        if last_active.tzinfo is None:
+            last_active = last_active.replace(tzinfo=timezone.utc)
+
+        if now - last_active < threshold:
+            remaining.append(song)
+            continue
+
+        for stem in song.stems:
+            try:
+                storage.delete_object(stem.r2_key)
+            except Exception:
+                logger.warning("Failed to delete stem %s for song %s", stem.kind, song.id, exc_info=True)
+        db.delete(song)
+        changed = True
+
+    if changed:
+        db.commit()
+
+    return remaining
 
 
 @app.get("/health")
@@ -103,6 +154,7 @@ def list_songs(db: Session = Depends(get_db)) -> list[SongOut]:
     expired = [_expire_if_stale(song.job) for song in songs if song.job]
     if any(expired):
         db.commit()
+    songs = _sweep_expired_stems(db, songs)
     return [_song_out(song) for song in songs]
 
 
@@ -121,6 +173,8 @@ def get_stems(song_id: str, db: Session = Depends(get_db)) -> list[StemOut]:
     song = db.get(Song, song_id)
     if song is None:
         raise HTTPException(status_code=404, detail="Song not found")
+    song.last_played_at = datetime.now(timezone.utc)
+    db.commit()
     return [StemOut(kind=stem.kind, url=storage.presigned_url(stem.r2_key)) for stem in song.stems]
 
 
@@ -186,6 +240,14 @@ def fail_job(job_id: str, payload: JobFailIn, db: Session = Depends(get_db)) -> 
     job.status = "failed"
     job.error = payload.error
     db.commit()
+
+    song = db.get(Song, job.song_id)
+    if song and song.original_key:
+        try:
+            storage.delete_object(song.original_key)
+        except Exception:
+            logger.warning("Failed to delete original upload for song %s", song.id, exc_info=True)
+
     return {"status": "ok"}
 
 

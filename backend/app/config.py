@@ -18,6 +18,7 @@ class Settings:
     modal_app_name: str
     internal_api_secret: str | None
     job_timeout_seconds: int
+    stem_retention_days: int
 
 
 def _env(key: str) -> str | None:
@@ -42,6 +43,11 @@ def load_settings() -> Settings:
         # container on its own timeout, our except/httpx-fail call never runs,
         # so the job would otherwise sit "processing" forever.
         job_timeout_seconds=int(_env("JOB_TIMEOUT_SECONDS") or "1100"),
+        # How long a song's stems survive without being opened (see get_stems'
+        # last_played_at bump) before list_songs sweeps them off storage.
+        # Falls back to created_at for songs that finished processing but were
+        # never opened, so an uploaded-and-forgotten song still expires.
+        stem_retention_days=int(_env("STEM_RETENTION_DAYS") or "7"),
     )
 
 
